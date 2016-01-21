@@ -168,10 +168,11 @@ def generate_tk():
    elif "False" in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass]:
       draw_text("Error: Fields must be numbers", 4, 200, "red", tag="err_text")
       return
-   elif classes in [None, False]:
+   elif classes in [None, "False"]:
       draw_text("Error: Classes must be comma separated numbers", 4, 200, "red", tag="err_text")
       return
    elif len(classes) not in [1, 2, 3]:
+      print len(classes)
       draw_text("Error: Must be 1-3 classes", 4, 200, "red", tag="err_text")
       return
    elif min_cargo > max_cargo:
