@@ -13,3 +13,7 @@ To save all the current settings (except for fuel, and minimum cargo and passeng
 #Installation
 
 Go to the [releases](https://github.com/pengowen123/Payload-Generator/releases) and get the latest version. If you have Python 2.7 or later (but not 3), you can simply move the generate.pyw file to somewhere convenient and double click it to run the program. Otherwise, move the Payload-Generator folder in the exe folder to somewhere convenient, and run the generate.exe file inside.
+
+#Bugs
+
+If you encounter a bug, file an issue listing operating system, Python version, Payload-Generator version, and steps to reproduce.
