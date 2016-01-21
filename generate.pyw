@@ -76,7 +76,7 @@ def generate(mtow,
       else:
          max_per_class = len(passengers) / (class_count - 1)
 
-      class_weights = [1.0, 5.0, 6.0]
+      class_weights = [1.0, 5.0, 7.0]
       c_rand = weighted_choice([(c, class_weights[c]) for c in xrange(class_count)])
         
       for c in xrange(class_count):
@@ -123,10 +123,14 @@ class TextField(object):
    def get(self):
       try:
          string = self.field.get()
+
+         if len(string) == 0:
+            return None
+         
          if self.is_int:
             return int(string)
       except:
-         return None
+         return False
          
       return string
 
@@ -154,8 +158,26 @@ def generate_tk():
    classes = fields[6].get()
    adults_only = adult_box.get()
 
-   if None in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass, classes] or classes not in [1, 2, 3] or min_cargo > max_cargo or min_pass > max_pass or mtow < fuel + max_cargo:
-      draw_text("Invalid options", 31, 200, "red")
+   if None in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass, classes]:
+      draw_text("Invalid options: Empty fields", 4, 200, "red")
+      return
+   elif False in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass, classes]:
+      draw_text("Invalid options: Fields must be numbers", 4, 200, "red")
+      return
+   elif classes not in [1, 2, 3]:
+      draw_text("Invalid options: Classes must be 1-3", 4, 200, "red")
+      return
+   elif min_cargo > max_cargo:
+      draw_text("Invalid options: Max. cargo can't be less than min.", 4, 200, "red")
+      return
+   elif min_pass > max_pass:
+      draw_text("Invalid options: Max. passengers can't be less than min.", 4, 200, "red")
+      return
+   elif mtow < fuel + max_cargo:
+      draw_text("Invalid options: Weight exceeds MTOW", 4, 200, "red")
+      return
+   elif True in [x < 0 for x in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass, classes]]:
+      draw_text("Invalid options: Fields must be greater than 0", 4, 200, "red")
       return
 
    cargo, passengers, classes = generate(mtow,
@@ -246,21 +268,39 @@ def load_file(seek=False):
 
 def save_preset():
    window.delete("save_error")
+   window.delete("text")
    name = fields[7].get()
 
-   if name.ljust(15)[:15] in presets.keys():
+   if name == None or name == "" or name == "".join(" " for x in xrange(len(name))):
+      draw_text("Empty name", 400, 176, "red", tag="save_error")
       return
 
-   if name == None or name == "" or name == "".join(" " for x in xrange(len(name))):
-      draw_text("Invalid name", 400, 176, "red", tag="save_error")
+   if name.ljust(15)[:15] in presets.keys():
       return
 
    options = [fields[i].get() if i not in [1, 2, 4] else "" for i in xrange(7)]
    options.append(units.get())
 
-   if None in options or options[6] not in [1, 2, 3] or 0 > options[3] or 0 > options[5] or options[0] < options[3]:
-      window.delete("save_error")
-      draw_text("Invalid options", 400, 176, "red", tag="save_error")
+   if None in options:
+      draw_text("Invalid options: Empty fields", 4, 200, "red")
+      return
+   elif False in options:
+      draw_text("Invalid options: Fields must be numbers", 4, 200, "red")
+      return
+   elif classes not in [1, 2, 3]:
+      draw_text("Invalid options: Classes must be 1-3", 4, 200, "red")
+      return
+   elif 0 > options[3]:
+      draw_text("Invalid options: Max. cargo can't be less than min.", 4, 200, "red")
+      return
+   elif 0 > options[5]:
+      draw_text("Invalid options: Max. passengers can't be less than min.", 4, 200, "red")
+      return
+   elif options[0] < options[3]:
+      draw_text("Invalid options: Weight exceeds MTOW", 4, 200, "red")
+      return
+   elif True in [options[i] < 0 for i in xrange(len(options))]:
+      draw_text("Invalid options: Fields must be greater than 0", 4, 200, "red")
       return
 
    with open("payload_presets.txt", "a") as p:
