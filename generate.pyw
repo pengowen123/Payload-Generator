@@ -26,7 +26,7 @@ def generate(mtow,
              max_cargo,
              min_pass,
              max_pass,
-             class_count,
+             classes,
              adults_only,
              units):
 
@@ -68,25 +68,27 @@ def generate(mtow,
       passengers.append(p)
 
    # Sort passengers into classes
+   max_per_class = [c for c in classes]
+   class_count = len(classes)
    classes = [[] for c in xrange(class_count)]
 
    for p in passengers:
-      if class_count < 2:
-         max_per_class = len(passengers)
-      else:
-         max_per_class = len(passengers) / (class_count - 1)
-
-      class_weights = [1.0, 5.0, 7.0]
+      class_weights = [float(x) for x in max_per_class]
       c_rand = weighted_choice([(c, class_weights[c]) for c in xrange(class_count)])
         
       for c in xrange(class_count):
-         if c == 0 and len(classes[c]) > 20:
-            if class_count >= 3:
-               c = 2
-            elif class_count >= 2:
-               c = 1
+         c_ = c
+         while len(classes[c_]) > max_per_class[c_]:
+            c_ += 1
+
+            if c_ >= class_count:
+               c_ = 0
+            elif c_ == c:
+               break
+
+         c = c_
             
-         if len(classes[c]) < max_per_class and c == c_rand:
+         if len(classes[c]) < max_per_class[c] and c == c_rand:
             classes[c].append(p)
 
    cargo_split = [0 for x in xrange(class_count)]
@@ -113,24 +115,25 @@ class Preset(object):
       self.options = options
 
 class TextField(object):
-   def __init__(self, label, x, y, width=7, is_int=True):
+   def __init__(self, label, x, y, width=7, is_int=True, is_list=False):
       self.label = Label(master, text=label)
       self.field = Entry(master, width=width, exportselection=0)
       self.label.place(x=x, y=y)
       self.field.place(x=x+100, y=y)
       self.is_int = is_int
+      self.is_list = is_list
 
    def get(self):
       try:
          string = self.field.get()
-
          if len(string) == 0:
             return None
-         
-         if self.is_int:
+         elif self.is_int:
             return int(string)
+         elif self.is_list:
+            return [int(i) for i in string.split(",")]
       except:
-         return False
+         return "False"
          
       return string
 
@@ -147,6 +150,7 @@ def generate_tk():
    global units
    
    window.delete("text")
+   window.delete("err_text")
    window.delete("line")
    
    mtow = fields[0].get()
@@ -158,26 +162,29 @@ def generate_tk():
    classes = fields[6].get()
    adults_only = adult_box.get()
 
-   if None in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass, classes]:
-      draw_text("Invalid options: Empty fields", 4, 200, "red")
+   if None in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass]:
+      draw_text("Error: Empty fields", 4, 200, "red", tag="err_text")
       return
-   elif False in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass, classes]:
-      draw_text("Invalid options: Fields must be numbers", 4, 200, "red")
+   elif "False" in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass]:
+      draw_text("Error: Fields must be numbers", 4, 200, "red", tag="err_text")
       return
-   elif classes not in [1, 2, 3]:
-      draw_text("Invalid options: Classes must be 1-3", 4, 200, "red")
+   elif classes in [None, False]:
+      draw_text("Error: Classes must be comma separated numbers", 4, 200, "red", tag="err_text")
+      return
+   elif len(classes) not in [1, 2, 3]:
+      draw_text("Error: Must be 1-3 classes", 4, 200, "red", tag="err_text")
       return
    elif min_cargo > max_cargo:
-      draw_text("Invalid options: Max. cargo can't be less than min.", 4, 200, "red")
+      draw_text("Error: Max. cargo can't be less than min.", 4, 200, "red", tag="err_text")
       return
    elif min_pass > max_pass:
-      draw_text("Invalid options: Max. passengers can't be less than min.", 4, 200, "red")
+      draw_text("Error: Max. passengers can't be less than min.", 4, 200, "red", tag="err_text")
       return
    elif mtow < fuel + max_cargo:
-      draw_text("Invalid options: Weight exceeds MTOW", 4, 200, "red")
+      draw_text("Error: Weight exceeds MTOW", 4, 200, "red", tag="err_text")
       return
    elif True in [x < 0 for x in [mtow, fuel, min_cargo, max_cargo, min_pass, max_pass, classes]]:
-      draw_text("Invalid options: Fields must be greater than 0", 4, 200, "red")
+      draw_text("Error: Fields must be greater than 0", 4, 200, "red", tag="err_text")
       return
 
    cargo, passengers, classes = generate(mtow,
@@ -226,14 +233,14 @@ def load_settings(mtow,
       fields[3].insert(max_cargo.replace(" ", ""))
       fields[4].insert(0)
       fields[5].insert(max_pass.replace(" ", ""))
-      fields[6].insert(classes.replace(" ", ""))
+      fields[6].insert(classes.replace(" ", "").replace(";", ",")[1:-1])
       units.set(units_)
    except:
       return
 
 def select_preset():
    try:
-      preset = presets.get(default.get())
+      preset = presets[default.get()]
       load_settings(preset.options[0],
                     preset.options[2],
                     preset.options[3],
@@ -268,7 +275,7 @@ def load_file(seek=False):
 
 def save_preset():
    window.delete("save_error")
-   window.delete("text")
+   window.delete("err_text")
    name = fields[7].get()
 
    if name == None or name == "" or name == "".join(" " for x in xrange(len(name))):
@@ -276,33 +283,39 @@ def save_preset():
       return
 
    if name.ljust(15)[:15] in presets.keys():
-      return
+      delete_preset(from_name=name)
 
    options = [fields[i].get() if i not in [1, 2, 4] else "" for i in xrange(7)]
    options.append(units.get())
 
-   if None in options:
-      draw_text("Invalid options: Empty fields", 4, 200, "red")
+   if None in [o for i, o in enumerate(options) if i < 6]:
+      draw_text("Error: Empty fields", 4, 200, "red", tag="err_text")
       return
-   elif False in options:
-      draw_text("Invalid options: Fields must be numbers", 4, 200, "red")
+   elif "False" in [o for i, o in enumerate(options) if i < 6]:
+      print options
+      draw_text("Error: Fields must be numbers", 4, 200, "red", tag="err_text")
       return
-   elif classes not in [1, 2, 3]:
-      draw_text("Invalid options: Classes must be 1-3", 4, 200, "red")
+   elif options[6] in [None, False]:
+      draw_text("Error: Classes must be comma separated numbers", 4, 200, "red", tag="err_text")
+      return
+   elif len(options[6]) not in [1, 2, 3]:
+      draw_text("Error: Must be 1-3 classes", 4, 200, "red", tag="err_text")
       return
    elif 0 > options[3]:
-      draw_text("Invalid options: Max. cargo can't be less than min.", 4, 200, "red")
+      draw_text("Error: Max. cargo can't be less than min.", 4, 200, "red", tag="err_text")
       return
    elif 0 > options[5]:
-      draw_text("Invalid options: Max. passengers can't be less than min.", 4, 200, "red")
+      draw_text("Error: Max. passengers can't be less than min.", 4, 200, "red", tag="err_text")
       return
    elif options[0] < options[3]:
-      draw_text("Invalid options: Weight exceeds MTOW", 4, 200, "red")
+      draw_text("Error: Weight exceeds MTOW", 4, 200, "red", tag="err_text")
       return
    elif True in [options[i] < 0 for i in xrange(len(options))]:
-      draw_text("Invalid options: Fields must be greater than 0", 4, 200, "red")
+      draw_text("Error: Fields must be greater than 0", 4, 200, "red", tag="err_text")
       return
 
+   options[6] = str(options[6][:3]).replace(",", ";")[1:-1]
+   
    with open("payload_presets.txt", "a") as p:
       p.write("\n" + name + ":" + str(options)[1:-1].replace(" ", "") )
    
@@ -314,8 +327,15 @@ def save_preset():
    aircraft = apply(OptionMenu, (master, default) + tuple(presets.keys()))
    aircraft.place(x=390, y=220)
 
-def delete_preset():
+   default.set(name.ljust(15)[:15])
+
+def delete_preset(from_name=False):
    global aircraft
+
+   if from_name != False:
+      name = from_name
+   else:
+      name = default.get()
    
    try:
       lines = []
@@ -326,7 +346,7 @@ def delete_preset():
 
          for i, l in enumerate(lines):
             
-            if l.split(":")[0].ljust(15)[:15] == default.get().ljust(15)[:15]:
+            if l.split(":")[0].ljust(15)[:15] == name.ljust(15)[:15]:
                del lines[i]
 
       with open("payload_presets.txt", "w") as p:
@@ -366,7 +386,7 @@ fields = [
    TextField("Max. Cargo", 0, 120),
    TextField("Min. Passengers", 0, 140),
    TextField("Max. Passengers", 0, 160),
-   TextField("Classes", 0, 180),
+   TextField("Classes", 0, 180, is_int=False, is_list=True),
    TextField("", 294, 196, width=15, is_int=False)
    ]
 
