@@ -272,7 +272,7 @@ def load_file(seek=False):
             aircraft = apply(OptionMenu, (master, default) + tuple(presets.keys()))
             aircraft.place(x=390, y=220)
          except:
-            return
+            continue
 
 def save_preset():
    window.delete("save_error")
